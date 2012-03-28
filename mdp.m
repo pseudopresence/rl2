@@ -39,8 +39,8 @@ StateTransitionTable = zeros([NStates, NActions]);
 
 for A = 1:NActions
     for S = 1:NStates
-        P = posFromState(S);
-        NP = Actions(A,:) + P;
+        PS2 = posFromState(S);
+        NP = Actions(A,:) + PS2;
         NX = NP(1);
         NY = NP(2);
         
@@ -52,6 +52,8 @@ for A = 1:NActions
     end
 end
 
+% Make final state TODO - accepting? capturing? argh what is the word
+% TODO maybe we want to not do this
 StateTransitionTable(GoalState, :) = repmat(GoalState, [NActions 1]);
 
 %% Visualisation
@@ -121,10 +123,10 @@ function drawStateTransitions()
     [NStates NActions] = size(StateTransitionTable);
     for A = 1:NActions
         for S = 1:NStates
-            P = posFromState(S);
+            PS2 = posFromState(S);
             if (StateTransitionTable(S, A) ~= S)
                 % TODO put action index at end...
-                drawGlyph(squeeze(Arrow(A,:,:,:)), P);
+                drawGlyph(squeeze(Arrow(A,:,:,:)), PS2);
             end
         end
     end
@@ -138,12 +140,12 @@ function drawActionImpl(Glyphs, X, Y, A)
 end
 
 function drawPolicy(Policy)
-    [NStates] = size(Policy);
+    [NStates] = numel(Policy);
     
     for S = 1:NStates
-        P = posFromState(S);
-        X = P(1);
-        Y = P(2);
+        PS2 = posFromState(S);
+        X = PS2(1);
+        Y = PS2(2);
         drawActionImpl(ActionGlyphs, X, Y, Policy(S));
     end
 end
@@ -226,11 +228,75 @@ function valueIteration(Fig, Discount, StateTransitions, MaxPolicyIterations)
     end
     fprintf('Value Iteration: Iterations before policy convergence: %d\n', PP);
 end
-fprintf('Value iteration\n');
+fprintf('Value Iteration\n');
 Discount = 1;
 MaxPolicyIterations = 1000;
 valueIteration(4, Discount, NormalStateTransitions, MaxPolicyIterations);
 % writeFigureEPS('NormalValueIteration.pdf');
 
+function [Z2 Pr] = Observations(S, A)
+    [S2 Pr] = NormalStateTransitions(S, A);
+    PS1 = sum(Pr(S2 == S));
+    
+    Z2 = [    0   1];
+    Pr = [1-PS1 PS1];
+end
+    
 
+function [NewBel] = bayesFilter(Bel, A, Z, StateTransitions, Observations)
+    NewBel = zeros(NStates, 1);
+    for NS = 1:NStates
+        Temp = 0;
+        for S = 1:NStates
+            [S2 Pr] = StateTransitions(S, A);
+            PS2 = sum(Pr(S2 == NS));
+            Temp = Temp + PS2 * Bel(S);
+        end
+        [Z2 Pr] = Observations(S, A);
+        PZ = sum(Pr(Z2 == Z));
+        NewBel(NS) = PZ * Temp;
+    end
+    NewBel = NewBel / sum(NewBel);
+end
+
+function vizBel(Fig, Bel)
+     figure(Fig);
+        imagesc(reshape(Bel, MapSize)');
+        colormap('gray');
+        drawWalls();
+    axis([VizMinX, VizMaxX, VizMinY, VizMaxY], 'xy', 'equal');
+end
+
+function [X] = sampleDiscrete(Xs, Ps)
+    C = cumsum(Ps);
+    R = rand(1);
+    I = find(C > R, 1);
+    % If non-zero prob of R==0.0, C >= R might select sample with P=0.
+    % If non-zero prob of R==1.0, C > R might fail to select anything.
+    I = sum(I) || numel(C); % handle rare case where R==1.0
+    
+    X = Xs(I);
+end
+
+fprintf('Bayes Filter\n');
+B = ones(NStates, 1) / NStates;
+S = floor(rand(1) * NStates) + 1;
+for PP = 1:10000
+    A = floor(rand(1) * 4) + 1;
+    [S2 Pr] = NormalStateTransitions(S, A);
+    NS = sampleDiscrete(S2, Pr);
+    Z = (S == NS);
+    S = NS;
+    B = bayesFilter(B, A, Z, NormalStateTransitions, @Observations);
+    
+    vizBel(5, B);
+    
+    if (max(B) == 1)
+        break;
+    end
+end
+fprintf('Bayes Filter: Iterations before belief convergence: %d\n', PP);
+
+fprintf('QMDP\n');
+fprintf('Bayes Filter: Iterations before belief convergence: %d\n');
 end

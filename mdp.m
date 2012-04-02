@@ -3,7 +3,8 @@ function mdp()
 %% World Setup
 
 stream0 = RandStream('mt19937ar','Seed',0);
-RandStream.setGlobalStream(stream0);
+%RandStream.setGlobalStream(stream0);
+RandStream.setDefaultStream(stream0);
 
 Rot90 = [
      0 +1;
@@ -34,26 +35,29 @@ posFromState = @(S) [mod((S - 1),MapWidth) + 1, floor((S - 1)/MapWidth) + 1];
 
 % Compute state transition matrix
 
-% [State x Action] -> State
-StateTransitionTable = zeros([NStates, NActions]);
+function T = computeStateTransitionTable()
+    T = zeros([NStates, NActions]);
 
-for A = 1:NActions
-    for S = 1:NStates
-        PS2 = posFromState(S);
-        NP = Actions(A,:) + PS2;
-        NX = NP(1);
-        NY = NP(2);
-        
-        if (NX < 1 || NX > MapWidth || NY < 1 || NY > MapHeight)
-            StateTransitionTable(S, A) = S;
-        else
-            StateTransitionTable(S, A) = stateFromPos(NP);
+    for A = 1:NActions
+        for S = 1:NStates
+            PS2 = posFromState(S);
+            NP = Actions(A,:) + PS2;
+            NX = NP(1);
+            NY = NP(2);
+
+            if (NX < 1 || NX > MapWidth || NY < 1 || NY > MapHeight)
+                T(S, A) = S;
+            else
+                T(S, A) = stateFromPos(NP);
+            end
         end
     end
 end
 
-% Make final state TODO - accepting? capturing? argh what is the word
-% TODO maybe we want to not do this
+% [State x Action] -> State
+StateTransitionTable = computeStateTransitionTable();
+
+% Make final state absorbing
 StateTransitionTable(GoalState, :) = repmat(GoalState, [NActions 1]);
 
 %% Visualisation
@@ -253,11 +257,13 @@ function [NewBel] = bayesFilter(Bel, A, Z, StateTransitions, Observations)
         for S = 1:NStates
             [S2 Pr] = StateTransitions(S, A);
             PS2 = sum(Pr(S2 == NS));
-            Temp = Temp + PS2 * Bel(S);
+            
+            [Z2 Pr] = Observations(S, A);
+            PZ = sum(Pr(Z2 == Z));
+            
+            Temp = Temp + PZ * PS2 * Bel(S);
         end
-        [Z2 Pr] = Observations(S, A);
-        PZ = sum(Pr(Z2 == Z));
-        NewBel(NS) = PZ * Temp;
+        NewBel(NS) = Temp;
     end
     NewBel = NewBel / sum(NewBel);
 end
@@ -292,7 +298,7 @@ for PP = 1:10000
     S = NS;
     B = bayesFilter(B, A, Z, NormalStateTransitions, @Observations);
     
-    vizBel(5, B);
+    vizBel(3, B);
     
     if (max(B) == 1)
         break;
@@ -301,8 +307,6 @@ end
 fprintf('Bayes Filter: Iterations before belief convergence: %d\n', PP);
 
 fprintf('QMDP\n');
-% TODO - computeAction taking a belief state rather than a concrete
-% state
 function A = computeAction(B, Q)
     QQ = zeros(NActions, 1);
     for A = 1:NActions;
@@ -311,15 +315,23 @@ function A = computeAction(B, Q)
     [~, A] = max(QQ);
 end
 
+% Recompute state transition table without making goal state absorbing.
+QMDPStateTransitionTable = computeStateTransitionTable();
+QMDPStateTransitions = @(S, A) deal(QMDPStateTransitionTable(S, A), 1);
+
+% Value iteration won't converge if we don't make the goal state absorbing.
+% We keep the value function computed with the absorbing goal state.
+
 B = ones(NStates, 1) / NStates;
+% TODO - try from all initial states
 S = floor(rand(1) * NStates) + 1;
 for PP = 1:10000
     A = computeAction(B, Q);
-    [S2 Pr] = NormalStateTransitions(S, A);
+    [S2 Pr] = QMDPStateTransitions(S, A);
     NS = sampleDiscrete(S2, Pr);
     Z = (S == NS);
     S = NS;
-    B = bayesFilter(B, A, Z, NormalStateTransitions, @Observations);
+    B = bayesFilter(B, A, Z, QMDPStateTransitions, @Observations);
     
     vizBel(5, B);
     
@@ -327,6 +339,5 @@ for PP = 1:10000
         break;
     end
 end
-
 
 end

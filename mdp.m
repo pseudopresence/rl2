@@ -183,6 +183,8 @@ function [Policy] = computeGreedyPolicy(V, StateTransitions, Reward, Discount)
         Q = zeros([NActions, 1]);
         for A = 1:NActions;
             [S2 Pr] = StateTransitions(S, A);
+            % TODO - make sure it makes sense and is computing the exact
+            % same thing, but return Q from valueIteration instead of V
             for I = 1:size(S2, 2)
                 Q(A) = Q(A) + Pr(I) * (Reward(S, A, S2(I)) + Discount * V(S2(I)));
             end
@@ -192,8 +194,9 @@ function [Policy] = computeGreedyPolicy(V, StateTransitions, Reward, Discount)
     end
 end
 
-function [NV] = valueIterationStep(V, StateTransitions, Reward, Discount)
+function [NV NQ] = valueIterationStep(V, StateTransitions, Reward, Discount)
     NV = zeros([NStates, 1]);
+    NQ = zeros([NStates, NActions]);
     for S = 1:NStates
         Q = zeros([NActions, 1]);
         for A = 1:NActions;
@@ -203,15 +206,16 @@ function [NV] = valueIterationStep(V, StateTransitions, Reward, Discount)
             end
         end
         [V2 Dummy] = max(Q);
+        NQ(S, :) = Q';
         NV(S) = V2;
     end
 end
 
-function valueIteration(Fig, Discount, StateTransitions, MaxPolicyIterations)
+function [V Q] = valueIteration(Fig, Discount, StateTransitions, MaxPolicyIterations)
     V = zeros([NStates 1]);
     for PP = 1:MaxPolicyIterations
         % Evaluate policy
-        NewV = valueIterationStep(V, StateTransitions, reward, Discount);
+        [NewV Q] = valueIterationStep(V, StateTransitions, reward, Discount);
 
         % Compute greedy policy
         Policy = computeGreedyPolicy(NewV, StateTransitions, reward, Discount);
@@ -231,7 +235,7 @@ end
 fprintf('Value Iteration\n');
 Discount = 1;
 MaxPolicyIterations = 1000;
-valueIteration(4, Discount, NormalStateTransitions, MaxPolicyIterations);
+[V, Q] = valueIteration(4, Discount, NormalStateTransitions, MaxPolicyIterations);
 % writeFigureEPS('NormalValueIteration.pdf');
 
 function [Z2 Pr] = Observations(S, A)
@@ -241,7 +245,6 @@ function [Z2 Pr] = Observations(S, A)
     Z2 = [    0   1];
     Pr = [1-PS1 PS1];
 end
-    
 
 function [NewBel] = bayesFilter(Bel, A, Z, StateTransitions, Observations)
     NewBel = zeros(NStates, 1);
@@ -298,5 +301,32 @@ end
 fprintf('Bayes Filter: Iterations before belief convergence: %d\n', PP);
 
 fprintf('QMDP\n');
-fprintf('Bayes Filter: Iterations before belief convergence: %d\n');
+% TODO - computeAction taking a belief state rather than a concrete
+% state
+function A = computeAction(B, Q)
+    QQ = zeros(NActions, 1);
+    for A = 1:NActions;
+        QQ(A) = sum(B .* Q(:, A));
+    end
+    [~, A] = max(QQ);
+end
+
+B = ones(NStates, 1) / NStates;
+S = floor(rand(1) * NStates) + 1;
+for PP = 1:10000
+    A = computeAction(B, Q);
+    [S2 Pr] = NormalStateTransitions(S, A);
+    NS = sampleDiscrete(S2, Pr);
+    Z = (S == NS);
+    S = NS;
+    B = bayesFilter(B, A, Z, NormalStateTransitions, @Observations);
+    
+    vizBel(5, B);
+    
+    if (max(B) == 1)
+        break;
+    end
+end
+
+
 end

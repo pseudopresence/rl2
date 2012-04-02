@@ -38,17 +38,17 @@ posFromState = @(S) [mod((S - 1),MapWidth) + 1, floor((S - 1)/MapWidth) + 1];
 function T = computeStateTransitionTable()
     T = zeros([NStates, NActions]);
 
-    for A = 1:NActions
-        for S = 1:NStates
-            PS2 = posFromState(S);
-            NP = Actions(A,:) + PS2;
+    for LA = 1:NActions
+        for LS = 1:NStates
+            PS2 = posFromState(LS);
+            NP = Actions(LA,:) + PS2;
             NX = NP(1);
             NY = NP(2);
 
             if (NX < 1 || NX > MapWidth || NY < 1 || NY > MapHeight)
-                T(S, A) = S;
+                T(LS, LA) = LS;
             else
-                T(S, A) = stateFromPos(NP);
+                T(LS, LA) = stateFromPos(NP);
             end
         end
     end
@@ -125,12 +125,12 @@ end
 
 function drawStateTransitions()
     [NStates NActions] = size(StateTransitionTable);
-    for A = 1:NActions
-        for S = 1:NStates
-            PS2 = posFromState(S);
-            if (StateTransitionTable(S, A) ~= S)
+    for LA = 1:NActions
+        for LS = 1:NStates
+            PS2 = posFromState(LS);
+            if (StateTransitionTable(LS, LA) ~= LS)
                 % TODO put action index at end...
-                drawGlyph(squeeze(Arrow(A,:,:,:)), PS2);
+                drawGlyph(squeeze(Arrow(LA,:,:,:)), PS2);
             end
         end
     end
@@ -146,11 +146,11 @@ end
 function drawPolicy(Policy)
     [NStates] = numel(Policy);
     
-    for S = 1:NStates
-        PS2 = posFromState(S);
+    for LS = 1:NStates
+        PS2 = posFromState(LS);
         X = PS2(1);
         Y = PS2(2);
-        drawActionImpl(ActionGlyphs, X, Y, Policy(S));
+        drawActionImpl(ActionGlyphs, X, Y, Policy(LS));
     end
 end
 
@@ -183,41 +183,41 @@ NormalStateTransitions = @(S, A) deal(StateTransitionTable(S, A), 1);
 
 function [Policy] = computeGreedyPolicy(V, StateTransitions, Reward, Discount)
     Policy = zeros([NStates, 1]);
-    for S = 1:NStates
+    for LS = 1:NStates
         Q = zeros([NActions, 1]);
-        for A = 1:NActions;
-            [S2 Pr] = StateTransitions(S, A);
+        for LA = 1:NActions;
+            [S2 Pr] = StateTransitions(LS, LA);
             % TODO - make sure it makes sense and is computing the exact
             % same thing, but return Q from valueIteration instead of V
-            for I = 1:size(S2, 2)
-                Q(A) = Q(A) + Pr(I) * (Reward(S, A, S2(I)) + Discount * V(S2(I)));
+            for LI = 1:size(S2, 2)
+                Q(LA) = Q(LA) + Pr(LI) * (Reward(LS, LA, S2(LI)) + Discount * V(S2(LI)));
             end
         end
-        [~, A] = max(Q);
-        Policy(S) = A;
+        [~, LA] = max(Q);
+        Policy(LS) = LA;
     end
 end
 
 function [NV NQ] = valueIterationStep(V, StateTransitions, Reward, Discount)
     NV = zeros([NStates, 1]);
     NQ = zeros([NStates, NActions]);
-    for S = 1:NStates
+    for LS = 1:NStates
         Q = zeros([NActions, 1]);
-        for A = 1:NActions;
-            [S2 Pr] = StateTransitions(S, A);
-            for I = 1:size(S2, 2)
-                Q(A) = Q(A) + Pr(I) * (Reward(S, A, S2(I)) + Discount * V(S2(I)));
+        for LA = 1:NActions;
+            [S2 Pr] = StateTransitions(LS, LA);
+            for LI = 1:size(S2, 2)
+                Q(LA) = Q(LA) + Pr(LI) * (Reward(LS, LA, S2(LI)) + Discount * V(S2(LI)));
             end
         end
-        [V2 Dummy] = max(Q);
-        NQ(S, :) = Q';
-        NV(S) = V2;
+        [V2 ~] = max(Q);
+        NQ(LS, :) = Q';
+        NV(LS) = V2;
     end
 end
 
 function [V Q] = valueIteration(Fig, Discount, StateTransitions, MaxPolicyIterations)
     V = zeros([NStates 1]);
-    for PP = 1:MaxPolicyIterations
+    for Iter = 1:MaxPolicyIterations
         % Evaluate policy
         [NewV Q] = valueIterationStep(V, StateTransitions, reward, Discount);
 
@@ -234,12 +234,12 @@ function [V Q] = valueIteration(Fig, Discount, StateTransitions, MaxPolicyIterat
         % refresh;
         % pause(0.1);
     end
-    fprintf('Value Iteration: Iterations before policy convergence: %d\n', PP);
+    fprintf('Value Iteration: Iterations before policy convergence: %d\n', Iter);
 end
 fprintf('Value Iteration\n');
 Discount = 1;
 MaxPolicyIterations = 1000;
-[V, Q] = valueIteration(4, Discount, NormalStateTransitions, MaxPolicyIterations);
+[~, Q] = valueIteration(4, Discount, NormalStateTransitions, MaxPolicyIterations);
 % writeFigureEPS('NormalValueIteration.pdf');
 
 function [Z2 Pr] = Observations(S, A)
@@ -250,30 +250,12 @@ function [Z2 Pr] = Observations(S, A)
     Pr = [1-PS1 PS1];
 end
 
-function [NewBel] = bayesFilter(Bel, A, Z, StateTransitions, Observations)
-    NewBel = zeros(NStates, 1);
-    for NS = 1:NStates
-        Temp = 0;
-        for S = 1:NStates
-            [S2 Pr] = StateTransitions(S, A);
-            PS2 = sum(Pr(S2 == NS));
-            
-            [Z2 Pr] = Observations(S, A);
-            PZ = sum(Pr(Z2 == Z));
-            
-            Temp = Temp + PZ * PS2 * Bel(S);
-        end
-        NewBel(NS) = Temp;
-    end
-    NewBel = NewBel / sum(NewBel);
-end
-
 function vizBel(Fig, Bel)
      figure(Fig);
         imagesc(reshape(Bel, MapSize)');
         colormap('gray');
         drawWalls();
-    axis([VizMinX, VizMaxX, VizMinY, VizMaxY], 'xy', 'equal');
+    axis([VizMinX, VizMaxX, VizMinY, VizMaxY], 'ij', 'equal');
 end
 
 function [X] = sampleDiscrete(Xs, Ps)
@@ -322,22 +304,40 @@ QMDPStateTransitions = @(S, A) deal(QMDPStateTransitionTable(S, A), 1);
 % Value iteration won't converge if we don't make the goal state absorbing.
 % We keep the value function computed with the absorbing goal state.
 
-B = ones(NStates, 1) / NStates;
-% TODO - try from all initial states
-S = floor(rand(1) * NStates) + 1;
-for PP = 1:10000
-    A = computeAction(B, Q);
-    [S2 Pr] = QMDPStateTransitions(S, A);
-    NS = sampleDiscrete(S2, Pr);
-    Z = (S == NS);
-    S = NS;
-    B = bayesFilter(B, A, Z, QMDPStateTransitions, @Observations);
-    
-    vizBel(5, B);
-    
-    if (max(B) == 1)
-        break;
+% TODO - only stop if belief has converged AND we are in goal state.
+for SS = 1:NStates
+    fprintf('QMDP: Start at state %d\n', SS);
+    B = ones(NStates, 1) / NStates;
+    S = SS;
+    Path = S;
+    for PP = 1:10000
+        A = computeAction(B, Q);
+        [S2 Pr] = QMDPStateTransitions(S, A);
+        NS = sampleDiscrete(S2, Pr);
+        Z = (S == NS);
+        Path = [Path; NS];
+        B = bayesFilter(B, A, Z, QMDPStateTransitions, @Observations);
+
+        vizBel(5, B);
+        PathX = [];
+        PathY = [];
+        for PI = 1:size(Path, 1)
+            P = posFromState(Path(PI));
+            
+            PathX = [PathX; P(1)];
+            PathY = [PathY; P(2)];
+        end
+        hold on;
+        plot(PathX, PathY, 'b');
+        pause(1);
+
+        if (max(B) == 1) % TODO && S == GoalState
+            break;
+        end
+        
+        S = NS;
     end
+    fprintf('QMDP: Start at state %d, iterations before belief convergence: %d\n', SS, PP);
 end
 
 end

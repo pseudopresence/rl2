@@ -1,0 +1,434 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+\usepackage[usenames,dvipsnames]{color}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter beramono
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+RL Homework 2
+\end_layout
+
+\begin_layout Author
+Chris Swetenham (s1149322)
+\end_layout
+
+\begin_layout Date
+April 2, 2012
+\end_layout
+
+\begin_layout Section
+MDP
+\end_layout
+
+\begin_layout Standard
+Similar to the previous assignment, we operate in a 3 by 4 grid world surrounded
+ by walls with no internal obstacles.
+ Actions are movement in the 4 cardinal directions.
+ The start state is in one corner and the goal state is one of the center
+ states (state 7 in the standard numbering).
+ We formulate this as an MDP with a state for each coordinate on the grid,
+ represented by a single integer.
+ We calculate possible state transitions from the actions.
+ We make the goal state a terminal state.
+ The reward is 0 when we are in the goal state, -1 otherwise.
+ We use a deterministic policy.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename StartingPolicy.eps
+	width 50text%
+
+\end_inset
+
+
+\begin_inset Caption
+
+\begin_layout Plain Layout
+Random Policy and State Transitions
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We use the value iteration code from last assignment.
+ We have also modified it to return the Q-function directly which will be
+ used later.
+ The value iteration procedure converges rapidly after 4 iterations, giving
+ the following value function and policy:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename ValueIteration.eps
+	width 50text%
+
+\end_inset
+
+
+\begin_inset Caption
+
+\begin_layout Plain Layout
+Optimal policy from value iteration
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset include
+LatexCommand lstinputlisting
+filename "part1.m"
+lstparams "basicstyle={\\scriptsize\\ttfamily},breaklines=true,caption={part1.m},captionpos=b,commentstyle={\\color{OliveGreen}},frame=tb,language=Matlab"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Bayes Filter
+\end_layout
+
+\begin_layout Standard
+We now wish to formulate a Bayes Filter for localisation starting from an
+ uncertain state (maintaining deterministic state transitions).
+ We will evaluate this using a policy which chooses random actions with
+ equal probability, and the goal state is not taken into account.
+ The only signal available is a bump sensor which is triggered if the robot
+ bumps into a wall.
+ In the usual formulation of the Bayes Filter, the signal is a function
+ of the current state, but here it is a function of the state transition.
+ We implement a version of the Bayes Filter where the signal is a function
+ of the previous state and the action taken.
+ We could have instead chosen to augment the state with an extra bit to
+ indicate the bumper status in the last transition, but this seems like
+ a less elegant formulation and it is desirable to avoid needlessly increasing
+ the number of states.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset include
+LatexCommand lstinputlisting
+filename "bayesFilter.m"
+lstparams "basicstyle={\\scriptsize\\ttfamily},breaklines=true,caption={bayesFilter.m},captionpos=b,commentstyle={\\color{OliveGreen}},frame=tb,language=Matlab"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In our test run, the belief converges to one corner of the grid after just
+ 4 steps.
+ The belief state is only reduced when some of the possible states could
+ have run into the wall and some would not have run into the wall, under
+ the latest action.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename BayesFilter.eps
+	width 50text%
+
+\end_inset
+
+
+\begin_inset Caption
+
+\begin_layout Plain Layout
+Converged belief from Bayes Filter
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset include
+LatexCommand lstinputlisting
+filename "part2.m"
+lstparams "basicstyle={\\scriptsize\\ttfamily},breaklines=true,caption={part2.m},captionpos=b,commentstyle={\\color{OliveGreen}},frame=tb,language=Matlab"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+QMDP
+\end_layout
+
+\begin_layout Standard
+We now combine the code from the previous sections in order to implement
+ QMDP.
+ The initial state is unknown, but we compute the optimal value function
+ of the underlying MDP and then pick the optimal action according to our
+ belief and the value function.
+\end_layout
+
+\begin_layout Standard
+As implied by the problem formulation we change the state transition table
+ for the QMDP run so that the goal state is no longer absorbing, and instead
+ terminate an episode when the belief has converged and the robot is in
+ the goal state.
+\end_layout
+
+\begin_layout Standard
+We observe that the resulting process often does not converge.
+ Trying all possible starting states, we find that it converges only starting
+ from states 3 and 4, converging in 5 and 4 states respectively.
+ From other states, it will end up in a belief state where it will never
+ take an action that further constrains its belief state.
+ Shown here is the result after 100 iterations starting from state 12:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename QMDP-12.eps
+	width 50text%
+
+\end_inset
+
+
+\begin_inset Caption
+
+\begin_layout Plain Layout
+Non-convergence, starting from state 12
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The non-converging situations have 2 or 4 possible states and hover around
+ the goal state without ever taking an action that might bump into the wall
+ and thereby reduce the belief state.
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset include
+LatexCommand lstinputlisting
+filename "part3.m"
+lstparams "basicstyle={\\scriptsize\\ttfamily},breaklines=true,caption={part3.m},captionpos=b,commentstyle={\\color{OliveGreen}},frame=tb,language=Matlab"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Discussion
+\end_layout
+
+\begin_layout Standard
+We investigated making the policy of the QMDP algorithm non-deterministic
+ among the maximal-value choices, but this does not help in cases such as
+ the one in Figure 4.
+ It is a fundamental limitation of QMDP that it does not reason about future
+ belief states when selecting an action.
+\end_layout
+
+\begin_layout Standard
+In this toy environment, the actions and observations are deterministic,
+ so one simple way to fix the policy would be to first run right until a
+ bump, then down until a bump, thereby collapsing the belief state in both
+ dimensions; and then driving straight for the goal.
+\end_layout
+
+\begin_layout Standard
+If the goal signal were made available to the bayes filter as an additional
+ input, it could localise the goal state correctly; but this would often
+ not correspond to a realistic situation in the real world.
+\end_layout
+
+\begin_layout Standard
+We could try using an epsilon-greedy policy, although this would not reliably
+ produce a sequence of actions that reduce our belief state in general.
+\end_layout
+
+\begin_layout Standard
+We could also solve the full POMDP problem in this setting, using point-based
+ value iteration over the 12-dimensional belief state; obviously this would
+ be more computationally expensive but it is the 'correct' solution.
+\end_layout
+
+\begin_layout Section*
+Appendix A - Additional Code
+\end_layout
+
+\begin_layout Standard
+\begin_inset VSpace defskip
+\end_inset
+
+
+\begin_inset CommandInset include
+LatexCommand lstinputlisting
+filename "writeFigureEPS.m"
+lstparams "basicstyle={\\scriptsize\\ttfamily},breaklines=true,caption={writeFigureEPS.m},captionpos=b,commentstyle={\\color{OliveGreen}},frame=tb,language=Matlab"
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
